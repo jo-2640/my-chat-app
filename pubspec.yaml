@@ -1,0 +1,44 @@
+name: fist_app
+description: "A new Flutter project."
+
+publish_to: 'none' # 배포하지 않음을 의미
+
+version: 1.0.0+1 # 앱 버전 관리
+
+environment:
+  sdk: '>=3.8.1 <4.0.0' # Flutter SDK 버전 범위
+
+dependencies:
+  flutter:
+    sdk: flutter
+  flutter_dotenv: ^5.0.0
+  # --- UI/유틸리티 패키지 ---
+  cupertino_icons: ^1.0.8 # iOS 스타일 아이콘
+  image_picker: ^1.1.2 # 프로필 이미지 선택 (최신 안정화 버전)
+  image: ^4.2.0 # 이미지 리사이징 및 처리를 위해 추가했습니다. (만약 유틸리티 함수에서 사용한다면 여기에 두는 것이 맞습니다.)
+  http: ^1.2.1 # Or the latest stable version. Check pub.dev for current.
+  mime: ^2.0.0
+  # --- Firebase 핵심 패키지 (2025년 7월 기준 최신 안정화 버전) ---
+  firebase_core: ^3.1.0
+  firebase_auth: ^5.0.0
+  cloud_firestore: ^5.0.0
+  firebase_storage: ^12.0.0 # 이미지 업로드를 위해 필요
+
+  # --- 로깅 패키지 ---
+  logger: ^2.0.2+1
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter # Flutter 테스트 프레임워크
+  flutter_lints: ^6.0.0 # 코드 분석 및 품질 검사 도구 (최신 안정화 버전)
+
+flutter:
+  uses-material-design: true # Material Design 사용 선언
+
+  # 앱에서 사용할 에셋(이미지, 폰트 등) 경로를 정의합니다.
+  assets:
+    - .env
+    - assets/img/default_profile_guest.png # 특정 이미지 파일 경로
+
+    # 만약 'assets/img/' 폴더 아래에 여러 이미지가 있다면, 폴더 자체를 등록할 수도 있습니다.
+    # - assets/img/
