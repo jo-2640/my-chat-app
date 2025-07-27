@@ -1,22 +1,24 @@
 // lib/widgets/loading_wrapper.dart
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import 'package:fist_app/services/auth_service.dart'; // AuthService 임포트
 import 'package:fist_app/services/config_service.dart'; // ConfigService 임포트
 import 'package:fist_app/screens/auth_screen.dart'; // AuthScreen 임포트
 import 'package:fist_app/screens/main_screen.dart'; // MyChatScreen 임포트
 import 'package:fist_app/utils/app_logger.dart'; // appLogger 임포트
-
+import 'package:fist_app/provider/auth_provider.dart'; //
 class LoadingWrapper extends StatefulWidget {
   const LoadingWrapper({super.key});
 
   @override
   State<LoadingWrapper> createState() => _LoadingWrapperState();
 }
-
+//서버로부터 받을 비동기 자료들.
 class _LoadingWrapperState extends State<LoadingWrapper> {
   // ConfigService에서 가져올 연도 범위 데이터를 저장할 변수
-  Map<String, int>? _birthYearRange; //서버로부터 받을 회원가입 출생연도 범위
-  List<Map<String, String>> _regions = []; // ✨ 지역 목록을 저장할 변수 추가
+  late Map<String, int> _birthYearRange; //서버로부터 받을 회원가입 출생연도 범위
+  late List<Map<String, String>> _regions = []; // ✨ 지역 목록을 저장할 변수 추가
+  late List<String> _ageGroupOptions; // ✨ 이 변수가 여기에 선언되어 있습니다.
   // 초기화 및 데이터 로딩 작업의 완료 여부
   bool _isInitialized = false;
   // 로딩 중 발생한 오류 메시지 (선택 사항)
@@ -31,7 +33,7 @@ class _LoadingWrapperState extends State<LoadingWrapper> {
   // 앱 초기화 및 데이터 로딩을 위한 비동기 함수
   Future<void> _initializeAppData() async {
     try {
-      // 1. ConfigService에서 탄생 연도 범위 데이터 로드
+      // 1. ConfigService에서 탄생 연도 범위 데이터 로드(비동기-서버)
       final range = await ConfigService.getBirthYearRange();
       if (range == null) {
         throw Exception('Failed to load birth year range from server.');
@@ -39,7 +41,7 @@ class _LoadingWrapperState extends State<LoadingWrapper> {
       _birthYearRange = range;
       appLogger.i('앱 초기화: 탄생 연도 범위 로드 성공');
 
-      // 2. ConfigService에서 지역 목록 데이터 로드 (동기)
+      // 2. ConfigService에서 지역 목록 데이터 로드 (동기-클라우드)
       _regions = ConfigService.getRegions(); // ✨ 지역 목록 로드
       if (_regions.isEmpty) {
         // 지역 데이터가 없으면 경고 또는 에러 처리
@@ -48,7 +50,12 @@ class _LoadingWrapperState extends State<LoadingWrapper> {
       } else {
         appLogger.i('앱 초기화: 지역 목록 로드 성공 (총 ${_regions.length}개)');
       }
-
+      _ageGroupOptions = ConfigService.getAgeGroupOptions();
+      if (_ageGroupOptions.isEmpty) {
+        appLogger.w('앱 초기화: 관심 연령대 옵션이 비어 있습니다. .env 파일을 확인하세요.');
+      } else {
+        appLogger.i('앱 초기화: 관심 연령대 옵션 로드 성공 (총 ${_ageGroupOptions.length}개)');
+      }
       setState(() {
         _isInitialized = true; // 모든 초기화 작업 완료 플래그 설정
       });
@@ -130,8 +137,13 @@ class _LoadingWrapperState extends State<LoadingWrapper> {
         }
         // 사용자가 로그인되어 있지 않음 (AuthScreen으로 이동)
         // AuthScreen에 로드된 연도 범위 데이터를 전달합니다!
-        return AuthScreen(birthYearRange: _birthYearRange!,
-        regions: _regions,
+        return ChangeNotifierProvider(
+          create: (ctx) => AuthProvider(
+            birthYearRange: _birthYearRange,
+            regions: _regions,
+            ageGroupOptions: _ageGroupOptions,
+          ),
+          child: const AuthScreen(),
         );
       },
     );

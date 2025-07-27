@@ -2,16 +2,19 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'package:fist_app/utils/app_logger.dart';
-import 'package:fist_app/constants/app_constants.dart';
+import 'package:fist_app/utils/age_group_utils.dart';
+import 'package:flutter_dotenv/flutter_dotenv.dart'; // .env 로드를 위해 필요
+
 
 class ConfigService {
-  final url = Uri.parse('$baseUrl/api/getBirthYearRange');
 
-  // 서버에서 허용된 최소/최대 탄생 연도 범위를 가져옵니다.
+ // 서버에서 허용된 최소/최대 탄생 연도 범위를 가져옵니다.
   // 성공 시 Map<String, int> 형태의 'minYear': int, 'maxYear': int를 반환하고,
   // 실패 시에는 null을 반환합니다.
   static Future<Map<String, int>?> getBirthYearRange() async {
+
     try {
+      final baseUrl = dotenv.env['BASE_URL'];
       final url = Uri.parse('$baseUrl/api/getBirthYearRange');
       appLogger.d('ConfigService: API 호출 URL 준비: $url');
 
@@ -50,7 +53,8 @@ class ConfigService {
     }
   }
   static List<Map<String, String>> getRegions() {
-    final String regionsString = regions ;
+    final regions = dotenv.env['REGIONS'];
+    final String regionsString = regions ?? '지역로딩 에러' ;
     if (regionsString.isEmpty) {
       appLogger.w('ConfigService: REGIONS 환경 변수가 설정되지 않았거나 비어 있습니다.');
       return [];
@@ -70,7 +74,27 @@ class ConfigService {
         appLogger.w('ConfigService: 유효하지 않은 REGIONS 항목 발견: $pair');
       }
     }
-    appLogger.i('ConfigService: 지역 목록 로드 ff완료: $parsedRegions');
+    appLogger.i('ConfigService: 지역 목록 로드 완료: $parsedRegions');
     return parsedRegions;
+  }
+  static List<String> getAgeGroupOptions() {
+    final String? ageGroupsStr = dotenv.env['AGE_GROUP_OPTIONS'];
+    if (ageGroupsStr != null && ageGroupsStr.isNotEmpty) {
+      final List<String> result = ageGroupsStr.split(',').map((age) => age.trim()).toList();
+      appLogger.i('ConfigService: AGE_GROUP_OPTIONS .env에서 로드 성공: $result (총 ${result.length}개)');
+      return result;
+    }
+    appLogger.w('ConfigService: AGE_GROUP_OPTIONS가 .env에 정의되지 않았습니다. AgeGroupUtils의 기본값 사용.');
+    // .env에 값이 없을 경우, AgeGroupUtils.detailedAgeGroupsFlutter의 value들을 사용
+    final List<String> defaultResult = AgeGroupUtils.detailedAgeGroupsFlutter.map((group) => group.value).toList();
+    appLogger.i('ConfigService: AGE_GROUP_OPTIONS AgeGroupUtils 기본값 사용: $defaultResult (총 ${defaultResult.length}개)');
+    return defaultResult;
+  }
+  static String? getBaseUrl() {
+    final String? baseUrl = dotenv.env['BASE_URL'];
+    if (baseUrl == null || baseUrl.isEmpty) {
+      appLogger.e('ConfigService: .env 파일에 BASE_URL이 정의되지 않았거나 비어 있습니다.');
+    }
+    return baseUrl;
   }
 }

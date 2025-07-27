@@ -1,15 +1,12 @@
 // lib/widgets/delete_all_data_button.dart
+
 import 'package:flutter/material.dart';
-import 'package:http/http.dart' as http; // HTTP 요청을 위해 필요
-import 'dart:convert'; // JSON 파싱을 위해 필요
-import 'package:fist_app/services/auth_service.dart'; // AuthService 사용을 위해 필요
-import 'package:fist_app/utils/app_logger.dart'; // appLogger 사용을 위해 필요
-import 'package:fist_app/utils/utils.dart'; // showToast 사용을 위해 필요
-import 'package:fist_app/utils/dialog_utils.dart'; // 새로 만든 DialogUtils 사용
-import 'package:fist_app/constants/app_constants.dart';
+import 'package:http/http.dart' as http;
+import 'package:fist_app/services/auth_service.dart';
+import 'package:fist_app/utils/app_logger.dart';
+import 'package:fist_app/services/config_service.dart'; // ConfigService 임포트
+
 class DeleteAllDataButton extends StatefulWidget {
-  // 이제 isLoading이나 onDeleteAllData를 외부에서 받을 필요가 없습니다.
-  // 이 위젯이 모든 것을 자체적으로 관리합니다.
   const DeleteAllDataButton({super.key});
 
   @override
@@ -17,85 +14,116 @@ class DeleteAllDataButton extends StatefulWidget {
 }
 
 class _DeleteAllDataButtonState extends State<DeleteAllDataButton> {
-  bool _isLoading = false; // 버튼 자체의 로딩 상태를 관리합니다.
+  bool _isDeleting = false;
+  String? _deleteMessage;
 
-  // _handleDeleteAllData 로직 전체를 이 위젯의 상태 안으로 이동
   Future<void> _handleDeleteAllDataLogic() async {
-    // _isLoading 상태를 true로 설정하여 버튼을 비활성화하고 로딩 상태를 표시
     setState(() {
-      _isLoading = true;
+      _isDeleting = true;
+      _deleteMessage = null;
     });
 
     try {
-      // 다이얼로그 유틸리티를 사용하여 이중 확인 과정을 처리
-      // 이 위젯의 context를 사용합니다.
-      final bool confirmedToDelete = await DialogUtils.showDeleteAllDataConfirmation(context);
-
-      // 다이얼로그 확인 도중 위젯이 언마운트되었는지 확인
-      if (!mounted) return;
-
-      // 사용자가 삭제를 최종 확인하지 않았다면 로딩 상태를 해제하고 종료
-      if (!confirmedToDelete) {
-        setState(() {
-          _isLoading = false;
-        });
-        return;
+      // ConfigService를 통해 BASE_URL을 가져옵니다.
+      // dotenv.env['BASE_URL']에 직접 접근하는 대신 ConfigService를 사용하는 것이 좋습니다.
+      final String? baseUrl = ConfigService.getBaseUrl(); // ✨ ConfigService에서 baseUrl 가져오는 메서드 호출
+      if (baseUrl == null || baseUrl.isEmpty) {
+        throw Exception('BASE_URL이 설정되지 않았습니다. .env 파일을 확인해주세요.');
       }
 
-      // 여기까지 왔다면, 사용자가 최종적으로 삭제를 확인한 것입니다.
-      showToast(context, '모든 데이터 삭제 요청 중...', 'info'); // context 사용
+      final url = Uri.parse('$baseUrl/api/delete-all-data');
+      appLogger.d('클라이언트에서 데이터 삭제 API 호출: $url');
 
-      final response = await http.post(
-        Uri.parse('$baseUrl/delete-all-data'),
-        headers: {'Content-Type': 'application/json'},
-      );
-
-      // 네트워크 요청 후 위젯이 언마운트되었는지 확인
-      if (!mounted) return;
+      final response = await http.post(url, headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer ${AuthService.auth.currentUser?.uid}', // 사용자 UID를 토큰으로 사용
+      });
 
       if (response.statusCode == 200) {
-        final data = jsonDecode(response.body);
-        showToast(context, data['message'], 'success'); // context 사용
-        await AuthService.handleLogout(context); // context 사용
+        setState(() {
+          _deleteMessage = '모든 사용자 데이터가 성공적으로 삭제되었습니다.';
+        });
+        appLogger.i('모든 사용자 데이터 삭제 성공');
+        // 선택 사항: 삭제 후 로그아웃 처리
+        await AuthService.auth.signOut();
       } else {
-        final data = jsonDecode(response.body);
-        showToast(context, data['message'] ?? '데이터 삭제 실패', 'error'); // context 사용
+        setState(() {
+          _deleteMessage = '데이터 삭제 실패: ${response.statusCode} - ${response.body}';
+        });
+        appLogger.e('데이터 삭제 실패: ${response.statusCode} - ${response.body}');
       }
     } catch (e, s) {
-      appLogger.e("클라이언트에서 데이터 삭제 API 호출 오류:", error: e, stackTrace: s); // appLogger 사용
-      if (mounted) {
-        showToast(context, '데이터 삭제 중 네트워크 오류 발생', 'error'); // context 사용
-      }
+      setState(() {
+        _deleteMessage = '클라이언트에서 데이터 삭제 API 호출 오류: $e';
+      });
+      appLogger.e('클라이언트에서 데이터 삭제 API 호출 오류:', error: e, stackTrace: s);
     } finally {
-      // 모든 작업 완료 후 (성공/실패/에러와 관계없이) 로딩 상태 해제
-      if (mounted) {
-        setState(() {
-          _isLoading = false;
-        });
-      }
+      setState(() {
+        _isDeleting = false;
+      });
     }
+  }
+
+  // 사용자에게 확인 메시지를 보여주는 다이얼로그
+  void _showDeleteConfirmationDialog() {
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: const Text('모든 데이터 삭제'),
+          content: const Text('정말로 모든 사용자 데이터를 삭제하시겠습니까? 이 작업은 되돌릴 수 없습니다.'),
+          actions: <Widget>[
+            TextButton(
+              onPressed: () {
+                Navigator.of(context).pop(); // 다이얼로그 닫기
+              },
+              child: const Text('취소'),
+            ),
+            TextButton(
+              onPressed: () {
+                Navigator.of(context).pop(); // 다이얼로그 닫기
+                _handleDeleteAllDataLogic(); // 데이터 삭제 로직 실행
+              },
+              style: TextButton.styleFrom(foregroundColor: Colors.red),
+              child: const Text('삭제'),
+            ),
+          ],
+        );
+      },
+    );
   }
 
   @override
   Widget build(BuildContext context) {
-    return SizedBox( // 기존 AuthScreen에서 너비 250을 줬으므로 여기에 SizedBox 추가
-      width: 250,
-      child: ElevatedButton(
-        // 이 위젯의 내부 로딩 상태와 로직을 연결
-        onPressed: _isLoading ? null : _handleDeleteAllDataLogic,
-        style: ElevatedButton.styleFrom(
-          backgroundColor: Colors.red.shade700, // 위험한 작업임을 나타내는 빨간색 배경
-          foregroundColor: Colors.white,
-          padding: const EdgeInsets.symmetric(vertical: 16),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(8.0),
+    return Column(
+      children: [
+        ElevatedButton(
+          onPressed: _isDeleting ? null : _showDeleteConfirmationDialog,
+          style: ElevatedButton.styleFrom(
+            backgroundColor: Colors.red,
+            foregroundColor: Colors.white,
+            minimumSize: const Size(250, 50),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(8.0),
+            ),
           ),
+          child: _isDeleting
+              ? const CircularProgressIndicator(color: Colors.white)
+              : const Text('모든 데이터 삭제 (개발용)'),
         ),
-        child: const Text(
-          '모든 데이터 삭제 (위험!)', // 고정 텍스트
-          style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-        ),
-      ),
+        if (_deleteMessage != null)
+          Padding(
+            padding: const EdgeInsets.only(top: 8.0),
+            child: Text(
+              _deleteMessage!,
+              style: TextStyle(
+                color: _deleteMessage!.contains('성공') ? Colors.green : Colors.red,
+                fontSize: 14,
+              ),
+              textAlign: TextAlign.center,
+            ),
+          ),
+      ],
     );
   }
 }

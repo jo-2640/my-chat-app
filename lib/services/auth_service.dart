@@ -4,7 +4,7 @@ import 'package:cloud_firestore/cloud_firestore.dart'; // Firestore 사용을 �
 import 'package:firebase_storage/firebase_storage.dart'; // Firebase Storage 사용을 위해
 import 'package:flutter/material.dart'; // BuildContext, showToast 등을 위해
 import 'package:fist_app/utils/app_logger.dart'; // 로거 사용을 위해
-
+import 'dart:io';
 
 class AuthService {
   // Firebase 서비스 인스턴스들을 static으로 선언하여 어디서든 접근 가능하게 합니다.
@@ -46,7 +46,19 @@ class AuthService {
   }
 
   // 회원가입 처리 함수
-  static Future<String?> handleSignup(String email, String password, String nickname) async {
+  static Future<String?> handleSignup({
+    required String email,
+    required String password,
+    required String nickname,
+    required String bio,
+    required String birthYear,
+    required String region,
+    required File profileImage, // 프로필 이미지 파일
+    required String gender,
+    required String minInterestAge,
+    required String maxInterestAge,
+  })async {
+    appLogger.i('회원가입 처리 시작: $email, $nickname');
     try {
       UserCredential userCredential = await auth.createUserWithEmailAndPassword(
         email: email,

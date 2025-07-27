@@ -8,13 +8,16 @@ class AgeGroupDropdownField extends StatelessWidget {
   final ValueChanged<String?> onChanged;
   final String type; // 'min' 또는 'max'
   final String labelText;
+  final List<AgeGroup> ageGroupsToDisplay;
 
   const AgeGroupDropdownField({
     super.key,
     required this.selectedValue,
     required this.onChanged,
     required this.type,
+    required this.ageGroupsToDisplay,
     this.labelText = '연령대',
+
   });
 
   @override
@@ -26,7 +29,7 @@ class AgeGroupDropdownField extends StatelessWidget {
         border: OutlineInputBorder(borderRadius: BorderRadius.circular(8.0)),
         prefixIcon: const Icon(Icons.group),
       ),
-      items: AgeGroupUtils.buildAgeGroupDropdownItems(type, includeDefault: true),
+      items: AgeGroupUtils.buildAgeGroupDropdownItems(ageGroupsToDisplay,type, includeDefault: true),
       onChanged: onChanged,
     );
   }

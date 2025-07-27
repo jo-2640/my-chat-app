@@ -2,16 +2,16 @@
 import 'package:flutter/material.dart';
 
 class AuthBirthYearDropdownField extends StatelessWidget {
-  final String? selectedBirthYear; // 현재 선택된 탄생 연도
-  final ValueChanged<String?> onChanged; // 값이 변경될 때 호출될 콜백 함수
+  final String? selectedBirthYear;
+  final ValueChanged<String?> onChanged;
   final int minYear;
   final int maxYear;
   const AuthBirthYearDropdownField({
     super.key,
     required this.selectedBirthYear,
     required this.onChanged,
-    required this.minYear, // ✨ 필수 매개변수로 추가
-    required this.maxYear, // ✨ 필수 매개변수로 추가
+    required this.minYear,
+    required this.maxYear,
   });
 
   @override
